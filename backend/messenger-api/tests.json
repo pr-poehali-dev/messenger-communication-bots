@@ -1,0 +1,38 @@
+{
+  "tests": [
+    {
+      "name": "Health check",
+      "method": "GET",
+      "path": "/",
+      "expectedStatus": 200,
+      "expectedBody": {"status": "string"},
+      "bodyMatcher": "partial"
+    },
+    {
+      "name": "Get chats",
+      "method": "GET",
+      "path": "/?action=chats",
+      "expectedStatus": 200
+    },
+    {
+      "name": "Get contacts",
+      "method": "GET",
+      "path": "/?action=contacts",
+      "expectedStatus": 200
+    },
+    {
+      "name": "Get messages",
+      "method": "GET",
+      "path": "/?action=messages&chat_id=chat-1",
+      "expectedStatus": 200
+    },
+    {
+      "name": "Send message",
+      "method": "POST",
+      "path": "/?action=send",
+      "body": {"chat_id": "chat-1", "text": "Тестовое сообщение"},
+      "headers": {"X-User-Id": "user-me"},
+      "expectedStatus": 200
+    }
+  ]
+}

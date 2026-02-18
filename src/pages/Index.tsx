@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useCallback } from "react";
 import Sidebar from "@/components/messenger/Sidebar";
 import ChatList from "@/components/messenger/ChatList";
 import ChatView from "@/components/messenger/ChatView";
@@ -11,14 +11,33 @@ import ProfilePanel from "@/components/messenger/ProfilePanel";
 const Index = () => {
   const [activeTab, setActiveTab] = useState("chats");
   const [selectedChat, setSelectedChat] = useState<string | null>(null);
+  const [chatInfo, setChatInfo] = useState<{ name: string; avatar: string; online: boolean } | null>(null);
+  const [refreshKey, setRefreshKey] = useState(0);
+
+  const handleSelectChat = useCallback((id: string, info: { name: string; avatar: string; online: boolean }) => {
+    setSelectedChat(id);
+    setChatInfo(info);
+  }, []);
+
+  const handleMessageSent = useCallback(() => {
+    setRefreshKey((k) => k + 1);
+  }, []);
 
   const renderContent = () => {
     switch (activeTab) {
       case "chats":
         return (
           <>
-            <ChatList selectedChat={selectedChat} onSelectChat={setSelectedChat} />
-            <ChatView chatId={selectedChat} />
+            <ChatList
+              selectedChat={selectedChat}
+              onSelectChat={handleSelectChat}
+              refreshKey={refreshKey}
+            />
+            <ChatView
+              chatId={selectedChat}
+              chatInfo={chatInfo}
+              onMessageSent={handleMessageSent}
+            />
           </>
         );
       case "calls":

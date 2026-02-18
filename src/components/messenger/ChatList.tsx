@@ -1,37 +1,59 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import Icon from "@/components/ui/icon";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Input } from "@/components/ui/input";
+import { getChats } from "@/lib/api";
 
-interface Chat {
+interface ChatData {
   id: string;
-  name: string;
-  lastMessage: string;
-  time: string;
-  unread: number;
-  online: boolean;
-  avatar: string;
+  name: string | null;
+  is_group: boolean;
+  last_message: { text: string; created_at: string; sender_id: string } | null;
+  unread_count: number;
+  members: { id: string; display_name: string; avatar_initials: string; is_online: boolean }[] | null;
 }
-
-const mockChats: Chat[] = [
-  { id: "1", name: "Алексей Петров", lastMessage: "Отлично, договорились!", time: "12:45", unread: 2, online: true, avatar: "АП" },
-  { id: "2", name: "Маркетинг", lastMessage: "Ольга: Презентация готова", time: "11:30", unread: 5, online: false, avatar: "МК" },
-  { id: "3", name: "Дарья Козлова", lastMessage: "Спасибо за помощь 🙏", time: "10:15", unread: 0, online: true, avatar: "ДК" },
-  { id: "4", name: "Техподдержка Бот", lastMessage: "Ваш тикет #234 решён", time: "Вчера", unread: 1, online: true, avatar: "🤖" },
-  { id: "5", name: "Иван Сидоров", lastMessage: "Как дела с проектом?", time: "Вчера", unread: 0, online: false, avatar: "ИС" },
-  { id: "6", name: "Команда дизайна", lastMessage: "Вы: Макеты отправил", time: "Пн", unread: 0, online: false, avatar: "КД" },
-];
 
 interface ChatListProps {
   selectedChat: string | null;
-  onSelectChat: (id: string) => void;
+  onSelectChat: (id: string, info: { name: string; avatar: string; online: boolean }) => void;
+  refreshKey?: number;
 }
 
-const ChatList = ({ selectedChat, onSelectChat }: ChatListProps) => {
+const ChatList = ({ selectedChat, onSelectChat, refreshKey }: ChatListProps) => {
   const [search, setSearch] = useState("");
+  const [chats, setChats] = useState<ChatData[]>([]);
 
-  const filtered = mockChats.filter((c) =>
-    c.name.toLowerCase().includes(search.toLowerCase())
+  useEffect(() => {
+    getChats().then(setChats);
+  }, [refreshKey]);
+
+  const formatTime = (dateStr: string) => {
+    const d = new Date(dateStr);
+    const now = new Date();
+    const diff = now.getTime() - d.getTime();
+    if (diff < 86400000) return d.toLocaleTimeString("ru-RU", { hour: "2-digit", minute: "2-digit" });
+    if (diff < 172800000) return "Вчера";
+    return d.toLocaleDateString("ru-RU", { day: "numeric", month: "short" });
+  };
+
+  const getChatName = (chat: ChatData) => {
+    if (chat.name) return chat.name;
+    if (chat.members && chat.members.length > 0) return chat.members[0].display_name;
+    return "Чат";
+  };
+
+  const getAvatar = (chat: ChatData) => {
+    if (chat.members && chat.members.length > 0) return chat.members[0].avatar_initials;
+    return "?";
+  };
+
+  const isOnline = (chat: ChatData) => {
+    if (chat.is_group) return false;
+    return chat.members?.some((m) => m.is_online) ?? false;
+  };
+
+  const filtered = chats.filter((c) =>
+    getChatName(c).toLowerCase().includes(search.toLowerCase())
   );
 
   return (
@@ -58,7 +80,7 @@ const ChatList = ({ selectedChat, onSelectChat }: ChatListProps) => {
         {filtered.map((chat) => (
           <button
             key={chat.id}
-            onClick={() => onSelectChat(chat.id)}
+            onClick={() => onSelectChat(chat.id, { name: getChatName(chat), avatar: getAvatar(chat), online: isOnline(chat) })}
             className={`w-full px-4 py-3 flex items-center gap-3 transition-all duration-150 ${
               selectedChat === chat.id
                 ? "bg-primary/10 border-r-2 border-primary"
@@ -68,23 +90,29 @@ const ChatList = ({ selectedChat, onSelectChat }: ChatListProps) => {
             <div className="relative flex-shrink-0">
               <Avatar className="w-11 h-11">
                 <AvatarFallback className="bg-secondary text-xs font-medium">
-                  {chat.avatar}
+                  {getAvatar(chat)}
                 </AvatarFallback>
               </Avatar>
-              {chat.online && (
+              {isOnline(chat) && (
                 <div className="absolute -bottom-0.5 -right-0.5 w-3.5 h-3.5 bg-emerald-500 rounded-full border-2 border-card" />
               )}
             </div>
             <div className="flex-1 min-w-0 text-left">
               <div className="flex items-center justify-between">
-                <span className="font-medium text-sm truncate">{chat.name}</span>
-                <span className="text-[11px] text-muted-foreground flex-shrink-0 ml-2">{chat.time}</span>
+                <span className="font-medium text-sm truncate">{getChatName(chat)}</span>
+                {chat.last_message && (
+                  <span className="text-[11px] text-muted-foreground flex-shrink-0 ml-2">
+                    {formatTime(chat.last_message.created_at)}
+                  </span>
+                )}
               </div>
               <div className="flex items-center justify-between mt-0.5">
-                <span className="text-xs text-muted-foreground truncate">{chat.lastMessage}</span>
-                {chat.unread > 0 && (
+                <span className="text-xs text-muted-foreground truncate">
+                  {chat.last_message?.text || "Нет сообщений"}
+                </span>
+                {chat.unread_count > 0 && (
                   <span className="flex-shrink-0 ml-2 min-w-[20px] h-5 px-1.5 gradient-primary rounded-full text-[11px] font-medium flex items-center justify-center text-white">
-                    {chat.unread}
+                    {chat.unread_count}
                   </span>
                 )}
               </div>
